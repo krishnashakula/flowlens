@@ -1,0 +1,111 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# FlowLens — Cloud Build CI/CD Pipeline
+#
+# Triggered on push to main via Cloud Build GitHub trigger.
+# Builds the backend image from backend/ subdirectory (Dockerfile is there,
+# not at the repo root), pushes to Artifact Registry, and deploys to Cloud Run.
+#
+# Required Cloud Build service-account permissions:
+#   roles/run.developer
+#   roles/artifactregistry.writer
+#   roles/secretmanager.secretAccessor    (to read GEMINI_API_KEY)
+# ─────────────────────────────────────────────────────────────────────────────
+
+steps:
+  # ── 0. Create Artifact Registry repo (idempotent — ok if already exists) ──
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: CreateRepo
+    entrypoint: bash
+    args:
+      - '-c'
+      - |
+        gcloud artifacts repositories describe ${_AR_REPO} \
+          --location=${_REGION} --project=$PROJECT_ID > /dev/null 2>&1 \
+        || gcloud artifacts repositories create ${_AR_REPO} \
+          --repository-format=docker \
+          --location=${_REGION} \
+          --project=$PROJECT_ID \
+          --description="FlowLens backend images"
+        gcloud auth configure-docker ${_REGION}-docker.pkg.dev --quiet
+
+  # ── 1. Pull previous image for layer-cache (best-effort) ──────────────────
+  - name: 'gcr.io/cloud-builders/docker'
+    id: Pull
+    entrypoint: bash
+    args:
+      - '-c'
+      - |
+        docker pull ${_IMAGE}:latest || true
+
+  # ── 2. Build from backend/ ─────────────────────────────────────────────────
+  - name: 'gcr.io/cloud-builders/docker'
+    id: Build
+    args:
+      - build
+      - '--cache-from=${_IMAGE}:latest'
+      - '--tag=${_IMAGE}:$COMMIT_SHA'
+      - '--tag=${_IMAGE}:latest'
+      - '--file=backend/Dockerfile'     # <── Dockerfile lives in backend/
+      - '--target=runtime'
+      - 'backend'                       # <── build context is backend/
+
+  # ── 3. Push both image tags ────────────────────────────────────────────────
+  - name: 'gcr.io/cloud-builders/docker'
+    id: Push
+    args:
+      - push
+      - '--all-tags'
+      - '${_IMAGE}'
+
+  # ── 4. Deploy to Cloud Run ─────────────────────────────────────────────────
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: Deploy
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - flowlens-backend
+      - '--image=${_IMAGE}:$COMMIT_SHA'
+      - '--region=${_REGION}'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--port=8000'
+      - '--memory=1Gi'
+      - '--cpu=1'
+      - '--min-instances=1'
+      - '--max-instances=10'
+      - '--timeout=60'
+      - '--concurrency=80'
+      - '--set-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest'
+      - '--set-env-vars=PYTHONUNBUFFERED=1'
+
+  # ── 5. Print the live service URL ──────────────────────────────────────────
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: PrintURL
+    entrypoint: bash
+    args:
+      - '-c'
+      - |
+        URL=$(gcloud run services describe flowlens-backend \
+          --region=${_REGION} --format='value(status.url)')
+        echo "══════════════════════════════════════════"
+        echo "  FlowLens deployed → $URL"
+        echo "  Health: $URL/health"
+        echo "══════════════════════════════════════════"
+        echo "CLOUD_RUN_URL=$URL" > /workspace/cloud_run_url.txt
+
+# Images to register in Cloud Build history
+images:
+  - '${_IMAGE}:$COMMIT_SHA'
+  - '${_IMAGE}:latest'
+
+# ── Substitution defaults (override in Cloud Build trigger UI if needed) ─────
+substitutions:
+  _REGION: us-east4
+  _AR_REPO: cloud-run-source-deploy
+  _IMAGE: us-east4-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/flowlens-backend
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_MEDIUM'
+  substitution_option: 'ALLOW_LOOSE'
