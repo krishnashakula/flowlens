@@ -22,7 +22,8 @@ import redis.asyncio as aioredis
 import structlog
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from agent import FlowLensAgent
 from memory import ConversationMemory
@@ -85,6 +86,37 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Serve Vite-built frontend static assets (js/css/img)
+_static_dir = Path(__file__).parent / "static"
+if _static_dir.exists():
+    app.mount("/assets", StaticFiles(directory=_static_dir / "assets"), name="assets")
+
+
+# ---------------------------------------------------------------------------
+# Root — landing page for judges hitting the bare URL
+# ---------------------------------------------------------------------------
+
+
+@app.get("/")
+async def root():
+    """Serve the React frontend, or JSON info if no static build present."""
+    index = Path(__file__).parent / "static" / "index.html"
+    if index.exists():
+        return FileResponse(index)
+    return JSONResponse(
+        {
+            "service": "FlowLens Backend",
+            "status": "running",
+            "description": "Real-time voice + vision AI productivity agent powered by Gemini Live API",
+            "endpoints": {
+                "health": "/health",
+                "demo":   "/demo",
+                "ws":     "/ws/{session_id}",
+            },
+            "github": "https://github.com/krishnashakula/flowlens",
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
