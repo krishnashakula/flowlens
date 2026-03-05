@@ -53,7 +53,8 @@ def file_exists(path: str) -> bool:
 def run_cmd(cmd: str, timeout: int = 10) -> tuple[int, str]:
     try:
         result = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True, timeout=timeout
+            cmd, shell=True, capture_output=True, text=True, timeout=timeout,
+            cwd=str(ROOT),
         )
         return result.returncode, result.stdout + result.stderr
     except subprocess.TimeoutExpired:
