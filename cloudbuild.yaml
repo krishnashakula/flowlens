@@ -86,13 +86,13 @@ steps:
     args:
       - '-c'
       - |
-        URL=$(gcloud run services describe flowlens-backend \
+        URL=$$(gcloud run services describe flowlens-backend \
           --region=${_REGION} --format='value(status.url)')
         echo "══════════════════════════════════════════"
-        echo "  FlowLens deployed → $URL"
-        echo "  Health: $URL/health"
+        echo "  FlowLens deployed → $$URL"
+        echo "  Health: $$URL/health"
         echo "══════════════════════════════════════════"
-        echo "CLOUD_RUN_URL=$URL" > /workspace/cloud_run_url.txt
+        echo "CLOUD_RUN_URL=$$URL" > /workspace/cloud_run_url.txt
 
 # Images to register in Cloud Build history
 images:
