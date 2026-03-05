@@ -1,0 +1,52 @@
+# ── Environment & secrets ─────────────────────────────────────────────────
+.env
+*.env.local
+
+# ── Python ────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+*.cover
+.hypothesis/
+
+# ── Node / Electron ───────────────────────────────────────────────────────
+node_modules/
+frontend/dist/
+frontend/dist-electron/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── Terraform ─────────────────────────────────────────────────────────────
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfstate.lock.info
+.terraform.lock.hcl
+terraform.tfvars        # may contain secrets
+
+# ── Docker ────────────────────────────────────────────────────────────────
+.dockerignore
+
+# ── IDE / OS ──────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/settings.json
+*.swp
+
+# ── Demo video (large binary — store in GDrive/GCS) ──────────────────────
+demo/*.mp4
+demo/*.mov

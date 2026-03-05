@@ -1,0 +1,41 @@
+# FlowLens Backend Dependencies — pinned to verified installed versions
+# Python 3.13+
+# Updated: 2026-03-04
+
+# Web framework + async server
+fastapi==0.135.1
+uvicorn[standard]==0.41.0
+websockets==14.1
+python-multipart==0.0.20
+
+# Google AI / Gemini
+google-genai==1.55.0
+google-cloud-aiplatform==1.130.0
+google-adk==0.1.0
+google-auth==2.37.0
+google-cloud-logging==3.13.0
+google-cloud-secret-manager==2.26.0
+
+# Redis
+redis[hiredis]==7.1.1
+
+# Image processing
+Pillow==11.1.0
+
+# Async utilities
+anyio==4.12.1
+httpx==0.28.1
+
+# Retry / resilience
+tenacity==9.0.0
+
+# Observability
+structlog==24.4.0
+
+# Testing
+pytest==8.3.4
+pytest-asyncio==0.25.3
+pytest-mock==3.14.0
+
+# Dev utilities
+python-dotenv==1.0.1

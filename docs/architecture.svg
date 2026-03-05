@@ -1,0 +1,164 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 620" width="960" height="620" font-family="'Segoe UI',Arial,sans-serif">
+  <!-- Background -->
+  <rect width="960" height="620" fill="#0f0f1a"/>
+
+  <!-- Title -->
+  <text x="480" y="42" text-anchor="middle" fill="#e8eaf6" font-size="22" font-weight="700" letter-spacing="1">FlowLens — Architecture</text>
+  <text x="480" y="64" text-anchor="middle" fill="#7986cb" font-size="13">Real-time Voice + Vision AI Productivity Agent · Gemini Live Agent Challenge 2026</text>
+
+  <!-- ─── USER BOX ─── -->
+  <rect x="40" y="220" width="130" height="70" rx="10" fill="#1a237e" stroke="#3949ab" stroke-width="2"/>
+  <text x="105" y="250" text-anchor="middle" fill="#e8eaf6" font-size="12" font-weight="600">USER</text>
+  <text x="105" y="268" text-anchor="middle" fill="#9fa8da" font-size="10">🎤 Voice + 🖥 Screen</text>
+  <text x="105" y="283" text-anchor="middle" fill="#9fa8da" font-size="10">Hold Space to talk</text>
+
+  <!-- ─── ELECTRON FRONTEND BOX ─── -->
+  <rect x="230" y="130" width="180" height="250" rx="12" fill="#1b2540" stroke="#3d5afe" stroke-width="2"/>
+  <text x="320" y="158" text-anchor="middle" fill="#82b1ff" font-size="13" font-weight="700">ELECTRON FRONTEND</text>
+  <line x1="240" y1="168" x2="400" y2="168" stroke="#3d5afe" stroke-width="1" stroke-dasharray="4,3"/>
+
+  <rect x="248" y="178" width="144" height="36" rx="6" fill="#192038" stroke="#5c6bc0" stroke-width="1"/>
+  <text x="320" y="196" text-anchor="middle" fill="#c5cae9" font-size="11" font-weight="600">AudioWorkletNode</text>
+  <text x="320" y="210" text-anchor="middle" fill="#9e9e9e" font-size="9">Float32→Int16 PCM 16kHz</text>
+
+  <rect x="248" y="224" width="144" height="36" rx="6" fill="#192038" stroke="#5c6bc0" stroke-width="1"/>
+  <text x="320" y="242" text-anchor="middle" fill="#c5cae9" font-size="11" font-weight="600">Screen Capture</text>
+  <text x="320" y="256" text-anchor="middle" fill="#9e9e9e" font-size="9">1 FPS JPEG via getDisplayMedia</text>
+
+  <rect x="248" y="270" width="144" height="36" rx="6" fill="#192038" stroke="#5c6bc0" stroke-width="1"/>
+  <text x="320" y="288" text-anchor="middle" fill="#c5cae9" font-size="11" font-weight="600">React + Vite</text>
+  <text x="320" y="302" text-anchor="middle" fill="#9e9e9e" font-size="9">Push-to-talk UI · latency HUD</text>
+
+  <rect x="248" y="316" width="144" height="36" rx="6" fill="#192038" stroke="#5c6bc0" stroke-width="1"/>
+  <text x="320" y="334" text-anchor="middle" fill="#c5cae9" font-size="11" font-weight="600">WebSocket Client</text>
+  <text x="320" y="348" text-anchor="middle" fill="#9e9e9e" font-size="9">ws://localhost:8000/ws/{id}</text>
+
+  <!-- ─── FASTAPI BACKEND BOX ─── -->
+  <rect x="480" y="100" width="190" height="310" rx="12" fill="#1b2540" stroke="#00c853" stroke-width="2"/>
+  <text x="575" y="128" text-anchor="middle" fill="#69f0ae" font-size="13" font-weight="700">FASTAPI BACKEND</text>
+  <line x1="490" y1="138" x2="660" y2="138" stroke="#00c853" stroke-width="1" stroke-dasharray="4,3"/>
+
+  <rect x="498" y="148" width="154" height="36" rx="6" fill="#192038" stroke="#2e7d32" stroke-width="1"/>
+  <text x="575" y="166" text-anchor="middle" fill="#c8e6c9" font-size="11" font-weight="600">WebSocket Handler</text>
+  <text x="575" y="180" text-anchor="middle" fill="#9e9e9e" font-size="9">audio_chunk · frame · audio_end</text>
+
+  <rect x="498" y="194" width="154" height="36" rx="6" fill="#192038" stroke="#2e7d32" stroke-width="1"/>
+  <text x="575" y="212" text-anchor="middle" fill="#c8e6c9" font-size="11" font-weight="600">FlowLensAgent</text>
+  <text x="575" y="226" text-anchor="middle" fill="#9e9e9e" font-size="9">process_turn() per session</text>
+
+  <rect x="498" y="240" width="154" height="36" rx="6" fill="#192038" stroke="#2e7d32" stroke-width="1"/>
+  <text x="575" y="258" text-anchor="middle" fill="#c8e6c9" font-size="11" font-weight="600">ScreenProcessor</text>
+  <text x="575" y="272" text-anchor="middle" fill="#9e9e9e" font-size="9">JPEG compress · validate</text>
+
+  <rect x="498" y="286" width="154" height="36" rx="6" fill="#192038" stroke="#2e7d32" stroke-width="1"/>
+  <text x="575" y="304" text-anchor="middle" fill="#c8e6c9" font-size="11" font-weight="600">MemoryManager</text>
+  <text x="575" y="318" text-anchor="middle" fill="#9e9e9e" font-size="9">last 20 turns · session-scoped</text>
+
+  <rect x="498" y="332" width="154" height="36" rx="6" fill="#192038" stroke="#2e7d32" stroke-width="1"/>
+  <text x="575" y="350" text-anchor="middle" fill="#c8e6c9" font-size="11" font-weight="600">Latency Profiler</text>
+  <text x="575" y="364" text-anchor="middle" fill="#9e9e9e" font-size="9">p50 / p95 first_byte_ms</text>
+
+  <!-- ─── GEMINI LIVE API BOX ─── -->
+  <rect x="740" y="100" width="180" height="140" rx="12" fill="#1a1a2e" stroke="#f57c00" stroke-width="2"/>
+  <text x="830" y="128" text-anchor="middle" fill="#ffb74d" font-size="13" font-weight="700">GEMINI LIVE API</text>
+  <line x1="750" y1="138" x2="910" y2="138" stroke="#f57c00" stroke-width="1" stroke-dasharray="4,3"/>
+
+  <rect x="758" y="148" width="144" height="36" rx="6" fill="#12122a" stroke="#e65100" stroke-width="1"/>
+  <text x="830" y="166" text-anchor="middle" fill="#ffe0b2" font-size="11" font-weight="600">gemini-2.0-flash-live</text>
+  <text x="830" y="180" text-anchor="middle" fill="#9e9e9e" font-size="9">bidiGenerateContent · v1alpha</text>
+
+  <rect x="758" y="194" width="144" height="36" rx="6" fill="#12122a" stroke="#e65100" stroke-width="1"/>
+  <text x="830" y="212" text-anchor="middle" fill="#ffe0b2" font-size="11" font-weight="600">Voice + Vision Input</text>
+  <text x="830" y="226" text-anchor="middle" fill="#9e9e9e" font-size="9">PCM audio + JPEG frame inline</text>
+
+  <!-- ─── REDIS BOX ─── -->
+  <rect x="740" y="290" width="180" height="120" rx="12" fill="#1a1a2e" stroke="#ef5350" stroke-width="2"/>
+  <text x="830" y="318" text-anchor="middle" fill="#ef9a9a" font-size="13" font-weight="700">REDIS</text>
+  <line x1="750" y1="328" x2="910" y2="328" stroke="#ef5350" stroke-width="1" stroke-dasharray="4,3"/>
+
+  <rect x="758" y="338" width="144" height="32" rx="6" fill="#12122a" stroke="#b71c1c" stroke-width="1"/>
+  <text x="830" y="354" text-anchor="middle" fill="#ffcdd2" font-size="11" font-weight="600">Conversation Memory</text>
+  <text x="830" y="366" text-anchor="middle" fill="#9e9e9e" font-size="9">TTL=3600s · cap=20 turns</text>
+
+  <rect x="758" y="378" width="144" height="24" rx="6" fill="#12122a" stroke="#b71c1c" stroke-width="1"/>
+  <text x="830" y="391" text-anchor="middle" fill="#9e9e9e" font-size="9">Graceful degradation (no Redis)</text>
+  <text x="830" y="401" text-anchor="middle" fill="#9fa8da" font-size="9">→ in-process fallback list</text>
+
+  <!-- ─── GCP CLOUD RUN WRAPPER ─── -->
+  <rect x="465" y="84" width="475" height="365" rx="14" fill="none" stroke="#4db6ac" stroke-width="1.5" stroke-dasharray="8,5"/>
+  <text x="700" y="78" text-anchor="middle" fill="#4db6ac" font-size="11" font-weight="600">GCP Cloud Run  ·  min_instances=1</text>
+
+  <!-- ─── ARROWS ─── -->
+  <!-- User → Frontend (PCM audio) -->
+  <line x1="170" y1="248" x2="228" y2="248" stroke="#5c6bc0" stroke-width="2" marker-end="url(#arr-blue)"/>
+  <text x="199" y="241" text-anchor="middle" fill="#7986cb" font-size="9">PCM 16kHz</text>
+
+  <!-- Frontend → Backend (WebSocket) -->
+  <line x1="410" y1="280" x2="478" y2="280" stroke="#43a047" stroke-width="2" marker-end="url(#arr-green)"/>
+  <text x="444" y="273" text-anchor="middle" fill="#66bb6a" font-size="9">WebSocket</text>
+  <!-- Backend → Frontend (audio response) -->
+  <line x1="478" y1="295" x2="410" y2="295" stroke="#43a047" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr-green)"/>
+  <text x="444" y="310" text-anchor="middle" fill="#66bb6a" font-size="9">PCM audio out</text>
+
+  <!-- Backend → Gemini -->
+  <line x1="670" y1="195" x2="738" y2="195" stroke="#f57c00" stroke-width="2" marker-end="url(#arr-orange)"/>
+  <text x="704" y="188" text-anchor="middle" fill="#ffb74d" font-size="9">JPEG + PCM</text>
+  <!-- Gemini → Backend -->
+  <line x1="738" y1="210" x2="670" y2="210" stroke="#f57c00" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr-orange)"/>
+  <text x="704" y="225" text-anchor="middle" fill="#ffb74d" font-size="9">audio + transcript</text>
+
+  <!-- Backend → Redis -->
+  <line x1="670" y1="340" x2="738" y2="340" stroke="#ef5350" stroke-width="2" marker-end="url(#arr-red)"/>
+  <text x="704" y="333" text-anchor="middle" fill="#ef9a9a" font-size="9">read / write</text>
+
+  <!-- ─── LEGEND / STATS ─── -->
+  <rect x="40" y="460" width="860" height="130" rx="10" fill="#111128" stroke="#37474f" stroke-width="1"/>
+  <text x="60" y="485" fill="#cfd8dc" font-size="12" font-weight="700">KEY DESIGN DECISIONS</text>
+
+  <!-- col 1 -->
+  <text x="60" y="508" fill="#69f0ae" font-size="10" font-weight="600">Sub-3s Voice Round-trip</text>
+  <text x="60" y="523" fill="#9e9e9e" font-size="9">ThinkingConfig(budget=0) eliminates</text>
+  <text x="60" y="535" fill="#9e9e9e" font-size="9">8 s CoT overhead on Gemini 2.5</text>
+
+  <!-- col 2 -->
+  <text x="260" y="508" fill="#69f0ae" font-size="10" font-weight="600">Vision w/o Extra API Call</text>
+  <text x="260" y="523" fill="#9e9e9e" font-size="9">JPEG frame injected directly into</text>
+  <text x="260" y="535" fill="#9e9e9e" font-size="9">Live session via send_realtime_input</text>
+
+  <!-- col 3 -->
+  <text x="460" y="508" fill="#69f0ae" font-size="10" font-weight="600">AudioWorkletNode Pipeline</text>
+  <text x="460" y="523" fill="#9e9e9e" font-size="9">Float32 → Int16 PCM in worklet</text>
+  <text x="460" y="535" fill="#9e9e9e" font-size="9">audio/pcm;rate=16000 · no deprecation</text>
+
+  <!-- col 4 -->
+  <text x="660" y="508" fill="#69f0ae" font-size="10" font-weight="600">Resilient Memory</text>
+  <text x="660" y="523" fill="#9e9e9e" font-size="9">Redis primary + in-process fallback</text>
+  <text x="660" y="535" fill="#9e9e9e" font-size="9">20-turn cap · TTL 3600 s</text>
+
+  <!-- second row stats -->
+  <line x1="60" y1="548" x2="880" y2="548" stroke="#263238" stroke-width="1"/>
+  <text x="60" y="566" fill="#7986cb" font-size="9">Tests: 98 passing · 0 warnings</text>
+  <text x="260" y="566" fill="#7986cb" font-size="9">IaC: Terraform · Cloud Run · Artifact Registry</text>
+  <text x="545" y="566" fill="#7986cb" font-size="9">Stack: Python 3.11 · FastAPI · Electron · React 18</text>
+  <text x="800" y="566" fill="#7986cb" font-size="9">SDK: google-genai 1.55</text>
+
+  <text x="480" y="583" text-anchor="middle" fill="#546e7a" font-size="9">
+    google-genai 1.55.0 · google-adk · FastAPI 0.111 · Redis 7 · Electron 28 · Vite 5
+  </text>
+
+  <!-- ─── ARROW MARKERS ─── -->
+  <defs>
+    <marker id="arr-blue" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#5c6bc0"/>
+    </marker>
+    <marker id="arr-green" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#43a047"/>
+    </marker>
+    <marker id="arr-orange" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#f57c00"/>
+    </marker>
+    <marker id="arr-red" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M0 0 L10 5 L0 10 z" fill="#ef5350"/>
+    </marker>
+  </defs>
+</svg>
