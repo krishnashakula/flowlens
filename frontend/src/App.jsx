@@ -3,7 +3,7 @@
  * Four states: IDLE → LISTENING → PROCESSING → SPEAKING
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { v4 as uuidv4 } from "uuid";
 import StatusBar from "./components/StatusBar";
 import ScreenPreview from "./components/ScreenPreview";
@@ -33,6 +33,17 @@ export default function App() {
   const audioCtxRef = useRef(null);
   const audioQueueRef = useRef([]);
   const isPlayingRef = useRef(false);
+  const lastAudioTimeRef = useRef(null);
+  const speakingTimeoutRef = useRef(null);
+
+  // Keep refs in sync with latest state/values to avoid stale closures in event handlers
+  const appStateRef = useRef(appState);
+  const isCapturingRef = useRef(isCapturing);
+  const currentFrameRef = useRef(null);
+
+  useEffect(() => { appStateRef.current = appState; }, [appState]);
+  useEffect(() => { isCapturingRef.current = isCapturing; }, [isCapturing]);
+  useEffect(() => { currentFrameRef.current = currentFrame; }, [currentFrame]);
 
   // Screen capture
   const { isCapturing, currentFrame, startCapture, stopCapture, error: captureError } =
@@ -48,6 +59,8 @@ export default function App() {
       } else {
         setTranscript(text);
         setPartialTranscript("");
+        // Clear the speaking safety timeout — transcript arrived cleanly
+        if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
         setAppState(STATE.IDLE);
         if (processingStart.current) {
           setLastLatency(((Date.now() - processingStart.current) / 1000).toFixed(1));
@@ -57,17 +70,22 @@ export default function App() {
     onError: () => setAppState(STATE.IDLE),
   });
 
+  // Clean up speaking timeout on unmount
+  useEffect(() => () => {
+    if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
+  }, []);
+
   // ---------- keyboard handling ----------
   useEffect(() => {
     const onKeyDown = (e) => {
-      if (e.code === "Space" && !e.repeat && appState === STATE.IDLE) {
+      if (e.code === "Space" && !e.repeat && appStateRef.current === STATE.IDLE) {
         e.preventDefault();
-        if (!isCapturing) startCapture();
+        if (!isCapturingRef.current) startCapture();
         setAppState(STATE.LISTENING);
         send({ type: "listening_start" });
         // Send the most recent known frame immediately so short holds
         // still provide screen context (don't wait for 1-FPS interval tick).
-        if (currentFrame) send({ type: "frame", data: currentFrame });
+        if (currentFrameRef.current) send({ type: "frame", data: currentFrameRef.current });
       }
       if (e.code === "Escape") {
         setAppState(STATE.IDLE);
@@ -77,7 +95,7 @@ export default function App() {
     };
 
     const onKeyUp = (e) => {
-      if (e.code === "Space" && appState === STATE.LISTENING) {
+      if (e.code === "Space" && appStateRef.current === STATE.LISTENING) {
         e.preventDefault();
         setAppState(STATE.PROCESSING);
         processingStart.current = Date.now();
@@ -92,7 +110,9 @@ export default function App() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
     };
-  }, [appState, isCapturing]);
+    // send/startCapture/stopCapture are stable references (useCallback with no-op deps)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [send, startCapture, stopCapture]);
 
   // ---------- processing timer + safety timeout ----------
   const startTimer = () => {
@@ -118,27 +138,43 @@ export default function App() {
   }, [appState]);
 
   // ---------- audio playback ----------
-  const enqueueAudio = (bytes) => {
+  const enqueueAudio = useCallback((bytes) => {
     setAppState(STATE.SPEAKING);
-    audioQueueRef.current.push(bytes);
-    if (!isPlayingRef.current) playNext();
-  };
+    lastAudioTimeRef.current = Date.now();
+    // Reset the SPEAKING→IDLE safety timeout on each incoming chunk
+    if (speakingTimeoutRef.current) clearTimeout(speakingTimeoutRef.current);
+    speakingTimeoutRef.current = setTimeout(() => {
+      // If no new audio arrives within 5s, assume the turn is done
+      setAppState((s) => (s === STATE.SPEAKING ? STATE.IDLE : s));
+    }, 5000);
 
-  const playNext = async () => {
+    audioQueueRef.current.push(bytes);
+    if (!isPlayingRef.current) playNext(0);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const playNext = useCallback(async (depth = 0) => {
     if (audioQueueRef.current.length === 0) {
+      isPlayingRef.current = false;
+      return;
+    }
+    // Prevent runaway recursion on persistent errors (e.g. closed AudioContext)
+    if (depth > 200) {
       isPlayingRef.current = false;
       return;
     }
     isPlayingRef.current = true;
 
-    if (!audioCtxRef.current) {
+    if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
       audioCtxRef.current = new AudioContext({ sampleRate: 24000 });
     }
     const ctx = audioCtxRef.current;
     const bytes = audioQueueRef.current.shift();
 
     try {
-      const pcm = new Int16Array(bytes.buffer || bytes);
+      // Correctly construct Int16Array from a Uint8Array slice, respecting byteOffset
+      const pcm = bytes instanceof Uint8Array
+        ? new Int16Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / 2)
+        : new Int16Array(bytes);
       const float32 = new Float32Array(pcm.length);
       for (let i = 0; i < pcm.length; i++) {
         float32[i] = pcm[i] / 32768;
@@ -148,12 +184,12 @@ export default function App() {
       const source = ctx.createBufferSource();
       source.buffer = buffer;
       source.connect(ctx.destination);
-      source.onended = playNext;
+      source.onended = () => playNext(depth + 1);
       source.start();
     } catch {
-      playNext();
+      playNext(depth + 1);
     }
-  };
+  }, []);
 
   // ---------- frame sending (1 FPS while LISTENING) ----------
   useEffect(() => {

@@ -95,8 +95,10 @@ export function useWebSocket({ sessionId, onAudioChunk, onTranscript, onError })
       mountedRef.current = false;
       clearTimeout(reconnectTimer.current);
       wsRef.current?.close(1000, "unmount");
+      // Stop microphone if still active (e.g. user closes window while recording)
+      stopMic();
     };
-  }, [connect]);
+  }, [connect, stopMic]);
 
   // ---- send ----
   const send = useCallback((payload) => {
@@ -153,6 +155,11 @@ registerProcessor('pcm-processor', PCMProcessor);
 `;
 
   const startMic = useCallback(async (ws) => {
+    // Guard against double-invocation while mic is already active
+    if (audioCtxMicRef.current) {
+      log.debug?.("[FlowLens WS] startMic called while already active — skipping");
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -170,8 +177,12 @@ registerProcessor('pcm-processor', PCMProcessor);
       // Load the processor via an inline Blob URL — no separate static file needed.
       const blob = new Blob([WORKLET_CODE], { type: "application/javascript" });
       const blobUrl = URL.createObjectURL(blob);
-      await ctx.audioWorklet.addModule(blobUrl);
-      URL.revokeObjectURL(blobUrl);
+      try {
+        await ctx.audioWorklet.addModule(blobUrl);
+      } finally {
+        // Always revoke the Blob URL to prevent memory leaks, even on error
+        URL.revokeObjectURL(blobUrl);
+      }
 
       const source = ctx.createMediaStreamSource(stream);
       const workletNode = new AudioWorkletNode(ctx, "pcm-processor");
@@ -183,19 +194,27 @@ registerProcessor('pcm-processor', PCMProcessor);
         }
       };
 
+      // Connect source → worklet ONLY — do NOT connect worklet to destination
+      // (connecting to destination would play mic audio through the speakers = echo)
       source.connect(workletNode);
-      workletNode.connect(ctx.destination);
     } catch (err) {
       console.error("[FlowLens WS] mic access denied:", err);
     }
   }, []);
 
-  const stopMic = useCallback((ws, onDone) => {
+  const stopMic = useCallback(async (ws, onDone) => {
     audioWorkletNodeRef.current?.disconnect();
     audioWorkletNodeRef.current = null;
 
-    audioCtxMicRef.current?.close();
-    audioCtxMicRef.current = null;
+    // Await close so the AudioContext flushes pending PCM before we send audio_end
+    if (audioCtxMicRef.current) {
+      try {
+        await audioCtxMicRef.current.close();
+      } catch (_) {
+        // ignore — already closed
+      }
+      audioCtxMicRef.current = null;
+    }
 
     micStreamRef.current?.getTracks().forEach((t) => t.stop());
     micStreamRef.current = null;

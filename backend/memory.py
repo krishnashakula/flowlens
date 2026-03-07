@@ -40,7 +40,13 @@ class ConversationMemory:
             try:
                 raw = await self._redis.get(self._redis_key)
                 if raw:
-                    self._exchanges = json.loads(raw)
+                    try:
+                        loaded = json.loads(raw)
+                        if isinstance(loaded, list):
+                            self._exchanges = loaded
+                    except (json.JSONDecodeError, KeyError, TypeError) as parse_err:
+                        log.warning("memory_parse_failed", error=str(parse_err))
+                        self._exchanges = []
                     log.info(
                         "memory_loaded",
                         session_id=self.session_id,
@@ -68,6 +74,8 @@ class ConversationMemory:
 
     async def append(self, user_turn: str, agent_turn: str):
         """Add a new exchange, evicting oldest if at capacity."""
+        if not self._loaded:
+            await self.load()
         self._exchanges.append(
             {
                 "user": user_turn,
@@ -85,6 +93,8 @@ class ConversationMemory:
         """
         Return conversation history as a formatted string for Gemini context.
         """
+        if not self._loaded:
+            await self.load()
         if not self._exchanges:
             return ""
 

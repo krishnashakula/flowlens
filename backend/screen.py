@@ -8,14 +8,17 @@ Optimisation targets:
   Effect: 20-40x token reduction → ~300ms faster frame analysis
 """
 
+import base64
 import io
-import logging
 from typing import Optional
 
 import structlog
-from PIL import Image, ImageOps
+from PIL import Image
 
 log = structlog.get_logger(__name__)
+
+# Decompression bomb protection — reject images larger than 50 MP
+Image.MAX_IMAGE_PIXELS = 50_000_000
 
 # ---- Compression parameters ------------------------------------------------
 MAX_WIDTH = 1280
@@ -75,7 +78,7 @@ def _encode_jpeg(image: Image.Image, quality: int) -> bytes:
         log.warning(
             "frame_too_large", bytes=len(result), retrying_at_quality=quality - 20
         )
-        return _encode_jpeg(image, quality - 20)
+        return _encode_jpeg(image, max(quality - 20, 30))
 
     log.debug("frame_compressed", bytes=len(result), quality=quality)
     return result
@@ -83,7 +86,6 @@ def _encode_jpeg(image: Image.Image, quality: int) -> bytes:
 
 def frame_to_base64(jpeg_bytes: bytes) -> str:
     """Convenience: convert JPEG bytes to base64 string for JSON transport."""
-    import base64
     return base64.b64encode(jpeg_bytes).decode("utf-8")
 
 

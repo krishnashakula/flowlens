@@ -4,12 +4,16 @@ Real-time voice + vision productivity agent powered by Gemini Live API.
 """
 
 import asyncio
+import json
 import os
+import re
 import time
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Optional
+
+_SESSION_ID_RE = re.compile(r'^[a-zA-Z0-9_\-]{1,64}$')
 
 # Auto-load .env from project root (two levels up from backend/)
 from dotenv import load_dotenv
@@ -81,8 +85,8 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Electron app uses custom scheme; tighten in prod
-    allow_credentials=True,
+    allow_origins=["*"],  # Electron app uses custom scheme; credentials excluded to satisfy CORS spec
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -177,6 +181,11 @@ async def demo_page():
 
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
+    # Validate session id to prevent Redis key injection
+    if not _SESSION_ID_RE.match(session_id):
+        await websocket.close(code=4000, reason="invalid session_id")
+        return
+
     await websocket.accept()
     _latency_store["total_sessions"] += 1
 
@@ -203,6 +212,16 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
             if latency_ms is not None:
                 _latency_store["samples"].append(latency_ms)
+                # Trim to last 1000 samples to prevent unbounded growth
+                if len(_latency_store["samples"]) > 1000:
+                    _latency_store["samples"] = _latency_store["samples"][-1000:]
+                # Inform the frontend so the HUD can display live latency
+                try:
+                    await websocket.send_text(
+                        json.dumps({"type": "latency", "ms": round(latency_ms)})
+                    )
+                except Exception:
+                    pass
 
     except WebSocketDisconnect:
         log.info("ws_disconnected", session_id=session_id)

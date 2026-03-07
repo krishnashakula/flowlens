@@ -7,7 +7,6 @@ Latency target: p50 < 2500ms, p95 < 3000ms end-to-end.
 import asyncio
 import base64
 import json
-import logging
 import os
 import time
 from pathlib import Path
@@ -149,6 +148,10 @@ class FlowLensAgent:
         self._profiler = LatencyProfiler(redis_client=redis_client)
 
         api_key = os.environ.get("GEMINI_API_KEY", "")
+        if not api_key:
+            raise ValueError(
+                "GEMINI_API_KEY is not set. Set it in .env or as an environment variable."
+            )
 
         # Vision client — default API version (v1beta)
         self._client = genai.Client(api_key=api_key)
@@ -160,9 +163,13 @@ class FlowLensAgent:
             http_options=genai_types.HttpOptions(api_version="v1alpha"),
         )
 
-        # Model names
-        self._vision_model_name = "gemini-2.5-flash"                      # generateContent
-        self._live_model_name = "gemini-2.5-flash-native-audio-latest"    # bidiGenerateContent
+        # Model names — allow override via env vars for easy experimentation
+        self._vision_model_name = os.environ.get(
+            "VISION_MODEL", "gemini-2.5-flash"
+        )
+        self._live_model_name = os.environ.get(
+            "LIVE_MODEL", "gemini-2.5-flash-native-audio-latest"
+        )
 
         # Accumulated state for the current turn
         self._current_frame: Optional[bytes] = None
@@ -298,7 +305,7 @@ class FlowLensAgent:
         context = self._build_context(memory_context)
 
         # Call Gemini Live: frame + audio sent together inside the session
-        transcript, t_first_byte, t_gemini_connected = await self._stream_voice_response(
+        transcript, user_transcript, t_first_byte, t_gemini_connected = await self._stream_voice_response(
             context=context,
             audio_data=audio_data,
             screen_frame=compressed_frame,
@@ -314,68 +321,13 @@ class FlowLensAgent:
             session_id=self.session_id,
         )
 
-        # Update conversation memory
+        # Update conversation memory with real transcripts when available
         has_screen = compressed_frame is not None
-        user_summary = "[screen shared] [audio query]" if has_screen else "[audio query]"
+        screen_tag = "[screen shared] " if has_screen else ""
+        user_summary = user_transcript if user_transcript else f"{screen_tag}[audio query]"
         await self._memory.append(user_turn=user_summary, agent_turn=transcript)
 
         return breakdown["total_ms"]
-
-    # -----------------------------------------------------------------------
-    # Frame analysis (vision model)
-    # -----------------------------------------------------------------------
-
-    async def _analyse_frame(self, jpeg_bytes: Optional[bytes]) -> str:
-        """
-        Describe what is on screen using gemini-2.5-flash (vision).
-        Returns a concise 1-2 sentence description, or empty string if no frame.
-        Hard timeout of 2s — the turn gives it only 1.5s before proceeding anyway.
-        """
-        if not jpeg_bytes:
-            return ""
-
-        try:
-            response = await asyncio.wait_for(
-                self._client.aio.models.generate_content(
-                    model=self._vision_model_name,
-                    contents=[
-                        (
-                            "Look at this screenshot and describe ONLY what you can literally see. "
-                            "List the actual application name, window title or tab name if visible, "
-                            "and the specific content shown (exact file names, variable names, text, "
-                            "UI elements). Do NOT guess, infer, or mention anything not explicitly "
-                            "visible. Be factual and specific in 1-2 sentences."
-                        ),
-                        genai_types.Part.from_bytes(
-                            data=jpeg_bytes, mime_type="image/jpeg"
-                        ),
-                    ],
-                    # Disable thinking for vision — we only need fast description,
-                    # not deep reasoning. Avoids inline_data echo and reduces latency.
-                    config=genai_types.GenerateContentConfig(
-                        thinking_config=genai_types.ThinkingConfig(thinking_budget=0),
-                    ),
-                ),
-                timeout=2.0,
-            )
-            # Extract text parts explicitly — avoids SDK warning when model
-            # returns inline_data (image echo) alongside the text description.
-            description = ""
-            try:
-                parts = response.candidates[0].content.parts
-                description = " ".join(
-                    p.text for p in parts if hasattr(p, "text") and p.text
-                ).strip()
-            except Exception:
-                description = (response.text or "").strip()
-            log.debug("frame_analysed", chars=len(description))
-            return description
-        except asyncio.TimeoutError:
-            log.warning("frame_analysis_timeout")
-            return ""
-        except Exception as exc:
-            log.warning("frame_analysis_error", error=str(exc))
-            return ""
 
     # -----------------------------------------------------------------------
     # Context builder
@@ -397,16 +349,17 @@ class FlowLensAgent:
         audio_data: bytes,
         screen_frame: Optional[bytes],
         websocket: WebSocket,
-    ) -> tuple[str, float, float]:
+    ) -> tuple[str, str, float, float]:
         """
         Call Gemini Live API.
         Sends the screen JPEG frame + PCM audio as realtime inputs so the
         model can see and hear simultaneously.
         Streams audio bytes back to the WebSocket.
-        Returns (transcript, t_first_byte, t_gemini_connected).
+        Returns (agent_transcript, user_transcript, t_first_byte, t_gemini_connected).
         """
         t_gemini_connected = time.perf_counter()
         transcript_parts: list[str] = []
+        user_transcript_parts: list[str] = []
         t_first_byte = t_gemini_connected  # updated when first audio byte sent
 
         live_config = genai_types.LiveConnectConfig(
@@ -468,6 +421,10 @@ class FlowLensAgent:
                     # server_content.output_transcription.text (not response.text)
                     sc = response.server_content
                     if sc:
+                        # Capture what the user said (input transcription)
+                        if sc.input_transcription and sc.input_transcription.text:
+                            user_transcript_parts.append(sc.input_transcription.text)
+
                         if sc.output_transcription and sc.output_transcription.text:
                             text_chunk = sc.output_transcription.text
                             transcript_parts.append(text_chunk)
@@ -490,7 +447,9 @@ class FlowLensAgent:
 
                     # Safety: if first audio has been received but nothing new
                     # for 8s, assume turn is done (server forgot to send turn_complete)
-                    if first_byte_sent and not audio_bytes and not (sc and sc.output_transcription):
+                    if first_byte_sent and not audio_bytes and not (
+                        sc and sc.output_transcription and sc.output_transcription.text
+                    ):
                         elapsed = time.perf_counter() - t_first_byte
                         if elapsed > 8.0:
                             log.warning("receive_loop_timeout_fallback", session_id=self.session_id)
@@ -498,7 +457,8 @@ class FlowLensAgent:
 
         except asyncio.TimeoutError:
             log.error("live_api_timeout", session_id=self.session_id)
-            return await self._generate_fallback_response(context, websocket), time.perf_counter(), t_gemini_connected
+            fallback = await self._generate_fallback_response(context, websocket)
+            return fallback, "", time.perf_counter(), t_gemini_connected
         except Exception as exc:
             log.error("live_api_error", error=str(exc), session_id=self.session_id)
             await websocket.send_text(
@@ -506,12 +466,13 @@ class FlowLensAgent:
             )
 
         transcript = " ".join(transcript_parts).strip()
+        user_transcript = " ".join(user_transcript_parts).strip()
         if transcript:
             await websocket.send_text(
                 json.dumps({"type": "transcript", "text": transcript, "partial": False})
             )
 
-        return transcript, t_first_byte, t_gemini_connected
+        return transcript, user_transcript, t_first_byte, t_gemini_connected
 
     # -----------------------------------------------------------------------
     # Fallback voice response (text-to-speech via TTS endpoint)

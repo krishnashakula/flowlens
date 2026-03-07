@@ -4,14 +4,21 @@
   "description": "Real-time voice + vision AI agent — FlowLens",
   "main": "electron/main.js",
   "scripts": {
-    "dev": "concurrently \"vite\" \"electron .\"",
+    "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 -- electron .\"",
     "vite": "vite",
     "electron": "electron .",
     "build": "vite build && electron-builder",
     "preview": "vite preview",
     "lint": "eslint src --ext .js,.jsx --report-unused-disable-directives"
   },
-  "keywords": ["electron", "react", "gemini", "ai", "voice", "vision"],
+  "keywords": [
+    "electron",
+    "react",
+    "gemini",
+    "ai",
+    "voice",
+    "vision"
+  ],
   "author": "FlowLens Team",
   "license": "MIT",
   "dependencies": {
@@ -23,14 +30,15 @@
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.21",
     "concurrently": "^9.1.2",
-    "electron": "^33.3.1",
-    "electron-builder": "^25.1.8",
+    "electron": "^40.8.0",
+    "electron-builder": "^26.8.1",
     "eslint": "^9.18.0",
     "eslint-plugin-react": "^7.37.4",
     "eslint-plugin-react-hooks": "^5.1.0",
     "postcss": "^8.5.1",
     "tailwindcss": "^3.4.17",
-    "vite": "^6.0.7"
+    "vite": "^6.0.7",
+    "wait-on": "^8.0.5"
   },
   "build": {
     "appId": "com.flowlens.app",
@@ -40,8 +48,7 @@
     },
     "files": [
       "dist/**/*",
-      "electron/**/*",
-      "node_modules/**/*"
+      "electron/**/*"
     ],
     "mac": {
       "category": "public.app-category.productivity",

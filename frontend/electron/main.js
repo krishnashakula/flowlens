@@ -46,7 +46,7 @@ function createWindow() {
     frame: false,
     transparent: true,
     resizable: false,
-    skipTaskbar: false,
+    skipTaskbar: true,
     show: false,
     webPreferences: {
       nodeIntegration: false,
@@ -81,7 +81,7 @@ function createWindow() {
         const primary = sources.find((s) => s.name.toLowerCase().includes("entire") ||
                                             s.name.toLowerCase().includes("screen")) ||
                         sources[0];
-        callback({ video: primary || sources[0] });
+        callback({ video: primary || sources[0], audio: "loopback" });
       } catch (err) {
         console.error("setDisplayMediaRequestHandler error:", err);
         callback({});
