@@ -367,8 +367,10 @@ class FlowLensAgent:
             # SpeechConfig/VoiceConfig are not supported on these models.
             response_modalities=["AUDIO"],
             system_instruction=context,
-            # Enable transcription so we still get text transcript of the response
+            # Enable transcription of bot output so we get text transcript
             output_audio_transcription=genai_types.AudioTranscriptionConfig(),
+            # Enable transcription of user input so we can store real transcripts
+            input_audio_transcription=genai_types.AudioTranscriptionConfig(),
             # Disable thinking — gemini-2.5 models think by default which adds
             # 5-10s of CoT latency before the first audio byte. For a voice
             # assistant < 3s total latency is the target.
@@ -408,7 +410,9 @@ class FlowLensAgent:
                 await session.send_realtime_input(audio_stream_end=True)
 
                 first_byte_sent = False
+                t_last_response = time.perf_counter()  # track when we last got ANY response
                 async for response in session.receive():
+                    t_last_response = time.perf_counter()
                     # Audio bytes — comes via response.data for native-audio models
                     audio_bytes = response.data
                     if audio_bytes:
@@ -443,10 +447,10 @@ class FlowLensAgent:
                             )
 
                         if sc.turn_complete:
+                            log.debug("turn_complete_received", session_id=self.session_id)
                             break
 
-                    # Safety: if first audio has been received but nothing new
-                    # for 8s, assume turn is done (server forgot to send turn_complete)
+                    # Safety guard 1: after audio started, break if silent for 8s
                     if first_byte_sent and not audio_bytes and not (
                         sc and sc.output_transcription and sc.output_transcription.text
                     ):
@@ -455,12 +459,24 @@ class FlowLensAgent:
                             log.warning("receive_loop_timeout_fallback", session_id=self.session_id)
                             break
 
+                    # Safety guard 2: if NO audio has ever arrived and 12s have passed
+                    # since the last server message, the model probably won't send audio
+                    if not first_byte_sent:
+                        elapsed_since_response = time.perf_counter() - t_last_response
+                        if elapsed_since_response > 12.0:
+                            log.warning(
+                                "no_audio_received_timeout",
+                                session_id=self.session_id,
+                                elapsed_s=round(elapsed_since_response, 1),
+                            )
+                            break
+
         except asyncio.TimeoutError:
             log.error("live_api_timeout", session_id=self.session_id)
             fallback = await self._generate_fallback_response(context, websocket)
             return fallback, "", time.perf_counter(), t_gemini_connected
         except Exception as exc:
-            log.error("live_api_error", error=str(exc), session_id=self.session_id)
+            log.exception("live_api_error", error=str(exc), session_id=self.session_id)
             await websocket.send_text(
                 json.dumps({"type": "error", "message": "Voice response failed, please retry."})
             )

@@ -74,8 +74,9 @@ steps:
       - '--cpu=1'
       - '--min-instances=1'
       - '--max-instances=10'
-      - '--timeout=60'
+      - '--timeout=3600'     # WebSocket sessions must outlive the longest conversation
       - '--concurrency=80'
+      - '--session-affinity' # Sticky WS connections stay on the same instance
       - '--set-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest'
       - '--set-env-vars=PYTHONUNBUFFERED=1'
 
