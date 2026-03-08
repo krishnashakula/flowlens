@@ -1,22 +1,148 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FlowLens</title>
-    <style>
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      body {
-        background: transparent;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        overflow: hidden;
-      }
-      #root { width: 380px; }
-    </style>
-    <script type="module" crossorigin src="./assets/index-DXuIEibt.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-HjldeXEZ.css">
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FlowLens — Real-Time Voice + Vision AI Agent</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --blue: #4285f4; --bg: #0a0a0a; --surface: #111;
+      --border: #1e1e1e; --text: #e0e0e0; --muted: #666; --green: #34a853;
+    }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; }
+    nav { width: 100%; max-width: 900px; display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; }
+    .logo { color: var(--blue); font-weight: 700; font-size: 1.1rem; letter-spacing: .04em; }
+    .nav-links { display: flex; gap: 20px; }
+    .nav-links a { color: var(--muted); text-decoration: none; font-size: .85rem; transition: color .15s; }
+    .nav-links a:hover { color: var(--text); }
+    .hero { width: 100%; max-width: 900px; padding: 60px 24px 20px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 20px; }
+    .badge { background: #1a2a1a; color: var(--green); border: 1px solid #2a3e2a; padding: 4px 12px; border-radius: 99px; font-size: .72rem; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
+    h1 { font-size: clamp(2rem, 5vw, 3.2rem); font-weight: 700; line-height: 1.15; color: #fff; }
+    h1 span { color: var(--blue); }
+    .subtitle { color: var(--muted); font-size: 1rem; max-width: 540px; line-height: 1.6; }
+    .ctas { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+    .btn { display: inline-block; padding: 10px 22px; border-radius: 8px; font-size: .85rem; font-weight: 600; text-decoration: none; transition: opacity .15s; }
+    .btn:hover { opacity: .85; }
+    .btn-primary { background: var(--blue); color: #fff; }
+    .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+    .preview-wrap { margin: 50px 0 40px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .preview-label { color: var(--muted); font-size: .75rem; letter-spacing: .06em; text-transform: uppercase; }
+    .preview-frame { background: #161616; border: 1px solid var(--border); border-radius: 20px; padding: 18px; box-shadow: 0 30px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.04); }
+    .widget { width: 380px; background: #0f0f0f; border: 1px solid #2a2a2a; border-radius: 16px; overflow: hidden; }
+    .widget-titlebar { display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; border-bottom: 1px solid #1e1e1e; }
+    .widget-logo { color: var(--blue); font-weight: 600; font-size: .8rem; letter-spacing: .06em; }
+    .status-pill { display: flex; align-items: center; gap: 6px; font-size: .7rem; color: var(--muted); }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    .widget-body { display: flex; flex-direction: column; align-items: center; padding: 20px 16px; gap: 14px; }
+    .ring-idle { width: 56px; height: 56px; border-radius: 50%; border: 2px solid #2a2a2a; display: flex; align-items: center; justify-content: center; }
+    .hint { color: #555; font-size: .7rem; text-align: center; }
+    .hint kbd { background: #1e1e1e; color: #999; padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: .65rem; }
+    .widget-footer { padding: 0 16px 12px; text-align: center; color: #2a2a2a; font-size: .6rem; }
+    .features { width: 100%; max-width: 900px; padding: 0 24px 60px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
+    .feature { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+    .feature-icon { font-size: 1.4rem; margin-bottom: 10px; }
+    .feature h3 { font-size: .9rem; font-weight: 600; color: #fff; margin-bottom: 6px; }
+    .feature p { font-size: .8rem; color: var(--muted); line-height: 1.5; }
+    .stack { width: 100%; max-width: 900px; padding: 0 24px 60px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+    .pill { background: #141414; border: 1px solid var(--border); border-radius: 99px; padding: 5px 14px; font-size: .75rem; color: #aaa; }
+    .health-section { width: 100%; max-width: 900px; padding: 0 24px 80px; display: flex; justify-content: center; }
+    .health-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 28px; display: flex; flex-direction: column; gap: 12px; min-width: 320px; }
+    .health-title { font-size: .75rem; font-weight: 600; color: var(--muted); letter-spacing: .05em; text-transform: uppercase; }
+    .health-row { display: flex; justify-content: space-between; align-items: center; font-size: .82rem; }
+    .health-row span { color: var(--muted); }
+    .ok { color: var(--green); font-weight: 600; }
+    .tag { background: #1a1a2e; color: #7986cb; border-radius: 4px; padding: 2px 8px; font-size: .7rem; }
+    footer { margin-top: auto; padding: 20px 24px; color: #333; font-size: .75rem; text-align: center; }
+    footer a { color: #444; text-decoration: none; }
+    footer a:hover { color: #666; }
+  </style>
+</head>
+<body>
+  <nav>
+    <span class="logo">FlowLens</span>
+    <div class="nav-links">
+      <a href="/health">Health</a>
+      <a href="/demo">API</a>
+      <a href="https://github.com/krishnashakula/flowlens" target="_blank">GitHub</a>
+    </div>
+  </nav>
+
+  <section class="hero">
+    <div class="badge">&#x2713; Live on GCP Cloud Run</div>
+    <h1>Real-time <span>voice + vision</span><br>AI for your screen</h1>
+    <p class="subtitle">Hold Space, ask about anything on your screen, get an instant voice answer powered by Gemini Live API. No typing. No copy-paste. No context switch.</p>
+    <div class="ctas">
+      <a href="/health" class="btn btn-primary">View Health &amp; Stats</a>
+      <a href="https://github.com/krishnashakula/flowlens" target="_blank" class="btn btn-secondary">GitHub &#x2197;</a>
+    </div>
+  </section>
+
+  <div class="preview-wrap">
+    <span class="preview-label">Electron Overlay — actual size</span>
+    <div class="preview-frame">
+      <div class="widget">
+        <div class="widget-titlebar">
+          <span class="widget-logo">FlowLens</span>
+          <div class="status-pill"><div class="dot"></div><span>Connected</span></div>
+        </div>
+        <div class="widget-body">
+          <div class="ring-idle">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#4285f4" stroke-width="2">
+              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+              <line x1="12" y1="19" x2="12" y2="23"/>
+              <line x1="8" y1="23" x2="16" y2="23"/>
+            </svg>
+          </div>
+          <p class="hint">Hold <kbd>Space</kbd> to talk</p>
+          <div style="background:#1a1a1a;border-radius:10px;padding:10px 12px;width:100%">
+            <p style="color:#e0e0e0;font-size:.72rem;line-height:1.5">"That's a null pointer on line 47 — you're dereferencing before checking if it's nil."</p>
+          </div>
+        </div>
+        <div class="widget-footer">Esc to cancel &middot; &#x2318;Q to quit</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="features">
+    <div class="feature"><div class="feature-icon">&#x1F3A4;</div><h3>Voice-first</h3><p>Hold Space to ask. Gemini hears your question and sees your screen simultaneously via the Live API.</p></div>
+    <div class="feature"><div class="feature-icon">&#x1F441;&#xFE0F;</div><h3>Screen-aware</h3><p>JPEG frame sent directly into the Gemini Live session — no separate vision call, no extra round-trip.</p></div>
+    <div class="feature"><div class="feature-icon">&#x26A1;</div><h3>Sub-2s p50</h3><p>ThinkingConfig(budget=0) + zero-copy AudioWorklet PCM streaming. First audio byte in ~800ms.</p></div>
+    <div class="feature"><div class="feature-icon">&#x1FA9F;</div><h3>Always on top</h3><p>380px Electron overlay. Transparent, frameless, stays above every app on screen.</p></div>
+    <div class="feature"><div class="feature-icon">&#x1F9E0;</div><h3>Conversation memory</h3><p>Last 5 turns stored in Redis with 10-min TTL. Follow-up questions just work.</p></div>
+    <div class="feature"><div class="feature-icon">&#x2601;&#xFE0F;</div><h3>GCP Cloud Run</h3><p>1 min instance, 3600s WS timeout, session affinity. Auto-scales to 10 via Cloud Build CI/CD.</p></div>
+  </div>
+
+  <div class="stack">
+    <span class="pill">Gemini 2.5 Flash Native Audio</span>
+    <span class="pill">Gemini Live API v1alpha</span>
+    <span class="pill">FastAPI + WebSocket</span>
+    <span class="pill">Electron 33</span>
+    <span class="pill">React 18</span>
+    <span class="pill">AudioWorkletNode</span>
+    <span class="pill">Redis</span>
+    <span class="pill">GCP Cloud Run</span>
+    <span class="pill">Cloud Build CI/CD</span>
+    <span class="pill">Terraform</span>
+  </div>
+
+  <div class="health-section">
+    <div class="health-card">
+      <div class="health-title">Live Backend Status</div>
+      <div class="health-row"><span>Service</span><span class="ok">&#x25CF; healthy</span></div>
+      <div class="health-row"><span>Gemini Live API</span><span class="ok">&#x25CF; connected</span></div>
+      <div class="health-row"><span>Region</span><span class="tag">us-east4</span></div>
+      <div class="health-row"><span>Min instances</span><span style="color:#aaa">1 (no cold start)</span></div>
+      <div class="health-row"><span>WebSocket timeout</span><span style="color:#aaa">3600s</span></div>
+      <div style="margin-top:4px"><a href="/health" style="color:var(--blue);font-size:.78rem;text-decoration:none">View live JSON stats &#x2192;</a></div>
+    </div>
+  </div>
+
+  <footer>
+    Built for the Google Gemini Live Agent Challenge &middot; March 2026 &middot;
+    <a href="https://github.com/krishnashakula/flowlens" target="_blank">github.com/krishnashakula/flowlens</a>
+  </footer>
+</body>
 </html>
