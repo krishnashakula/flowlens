@@ -1,88 +1,196 @@
+﻿<div align="center">
+
+<img src="docs/architecture.svg" alt="FlowLens" width="72" />
+
 # FlowLens
 
-> **Real-time voice + vision AI agent** — speak to your screen, get answers in under 3 seconds.
+### Real-Time Voice + Vision AI Agent for Your Screen
 
-Built for the [Gemini Live Agent Challenge](https://geminiliveagentchallenge.devpost.com/) · Powered by Gemini Live API · Deployed on Google Cloud Run
+[![Cloud Run](https://img.shields.io/badge/Cloud%20Run-deployed-4285F4?logo=google-cloud&logoColor=white)](https://flowlens-backend-rxwer3bgva-uk.a.run.app)
+[![Gemini Live API](https://img.shields.io/badge/Gemini%202.5%20Flash-Live%20API-34A853?logo=google&logoColor=white)](https://ai.google.dev)
+[![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)](https://python.org)
+[![Electron](https://img.shields.io/badge/Electron-33-47848F?logo=electron&logoColor=white)](https://electronjs.org)
+[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev)
+[![License](https://img.shields.io/badge/license-MIT-22c55e)](LICENSE)
+[![Hackathon](https://img.shields.io/badge/Gemini%20Live%20Agent%20Challenge-2026-FBBC04)](https://geminiliveagentchallenge.devpost.com)
+
+<br/>
+
+**Hold a button. Ask anything about your screen. Get a spoken answer in under 2 seconds.**
+
+No copy-paste. No tab-switching. No typing.
+
+<br/>
+
+[**ðŸš€ Live Demo**](https://flowlens-backend-rxwer3bgva-uk.a.run.app) Â· [**ðŸ“– How It Works**](#architecture) Â· [**âš¡ Quick Start**](#quick-start) Â· [**ðŸ§  Gemini Live API**](#gemini-live-api-integration)
+
+</div>
 
 ---
 
 ## The Problem
 
-Every time a developer or designer hits a visual problem, the current workflow kills momentum:
-
-1. Screenshot the screen
-2. Alt-tab to ChatGPT
-3. Attach the image
-4. **Type** a description of what's wrong
-
-**Average time: 34 seconds.** That's context-switching overhead, every single time.
-
-## The Solution
-
-FlowLens sits as a floating window in the corner of your screen. Hold Space, ask your question out loud, and get a voice answer in **2.8 seconds** — while FlowLens can already see everything on your screen.
+Every time a developer hits a visual bug, a designer needs a critique, or someone stares at an unfamiliar error â€” the workflow is the same painful loop:
 
 ```
-BEFORE → user screenshots Figma, pastes into ChatGPT, types description: 34 seconds
-AFTER  → user holds space, speaks to FlowLens which sees screen: 2.8 seconds
+ðŸ“¸ Screenshot  â†’  ðŸ”€ Alt-Tab  â†’  ðŸ“‹ Paste  â†’  âŒ¨ï¸ Describe  â†’  â³ Wait  â†’  ðŸ“– Read
+                                                                    â†‘
+                                                              ~34 seconds
 ```
+
+**FlowLens collapses that to 2 seconds.**
 
 ---
 
-## Quick Start (one command)
+## What Is FlowLens?
 
-```bash
-# 1. Clone and configure
-git clone https://github.com/your-org/flowlens.git
-cd flowlens
-cp .env.example .env
-# Edit .env: set GEMINI_API_KEY=your-key-here
+FlowLens is an **always-on-top desktop overlay** (Electron + React) that:
 
-# 2. Start local stack (backend + redis)
-docker compose up
+- ðŸ‘ï¸ **Sees your screen** â€” captures 1 FPS JPEG frames via `getDisplayMedia()`
+- ðŸŽ™ï¸ **Hears your voice** â€” streams raw PCM at 16 kHz via AudioWorklet
+- ðŸ§  **Runs Gemini 2.5 Flash** â€” via the Live API's bidirectional `bidiGenerateContent` stream
+- ðŸ”Š **Speaks back** â€” native audio response directly to your speakers
+- ðŸ’¾ **Remembers context** â€” Redis-backed rolling window of the last 10 turns
 
-# 3. In a separate terminal — start the Electron app
-cd frontend
-npm install
-npm run dev
+```
+You: "Why is this CSS layout broken?"
+FlowLens: [sees your screen] "The flex container is missing align-items:
+           center. The child div has an explicit height that's overflowing."
+          [2.1s total latency]
 ```
 
-Backend will be live at `http://localhost:8000`. Health check: `http://localhost:8000/health`.
+Built for the [Gemini Live Agent Challenge](https://geminiliveagentchallenge.devpost.com/) Â· Powered by Gemini Live API Â· Deployed on Google Cloud Run
+
+---
+
+## Quick Start
+
+### Option A â€” Use Cloud Run backend *(no Python needed)*
+
+```bash
+git clone https://github.com/krishnashakula/flowlens
+cd flowlens/frontend
+
+# Point at the live Cloud Run backend
+echo "VITE_WS_URL=wss://flowlens-backend-rxwer3bgva-uk.a.run.app" > .env
+
+npm install
+npx vite &        # Vite dev server on :5173
+npx electron .    # Launch the overlay
+```
+
+### Option B â€” Run everything locally
+
+```bash
+# 1. Clone
+git clone https://github.com/krishnashakula/flowlens
+cd flowlens
+
+# 2. Backend
+cd backend
+python -m venv .venv
+.venv\Scripts\activate          # Windows
+pip install -r requirements.txt
+set GEMINI_API_KEY=your_key
+uvicorn main:app --port 8000
+
+# 3. Frontend (new terminal)
+cd frontend
+npm install
+npx vite &
+npx electron .
+```
+
+### Controls
+
+| Key / Action | Effect |
+|---|---|
+| **Hold "Hold to Talk" button** | Stream voice â†’ Gemini â†’ hear response |
+| `Space` (widget focused) | Same as button |
+| `Alt + S` | Capture screen + send frame |
+| `Esc` | Cancel current query |
+| `Ctrl + Shift + I` | Open DevTools |
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  Electron Desktop App (React + Vite)                │
-│  ├── Screen capture: getDisplayMedia() 1 FPS        │
-│  ├── Audio: WebRTC microphone, 100ms chunks         │
-│  └── WebSocket client → FastAPI backend             │
-├─────────────────────────────────────────────────────┤
-│  FastAPI Backend (Google Cloud Run)                 │
-│  ├── gemini-2.0-flash-live-001 — voice streaming    │
-│  ├── gemini-2.0-flash — screen frame analysis       │
-│  ├── asyncio.gather() — parallel frame + voice      │
-│  └── Redis (GCP Memorystore) — last 5 exchanges     │
-├─────────────────────────────────────────────────────┤
-│  Infrastructure (Terraform IaC)                     │
-│  ├── Cloud Run (min_instances=1, no cold start)     │
-│  ├── Artifact Registry — container images           │
-│  └── Memorystore Redis — conversation state         │
-└─────────────────────────────────────────────────────┘
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚  Electron Desktop  (React 18 + Vite 6)                           â”‚
+â”‚                                                                    â”‚
+â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”    â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â” â”‚
+â”‚  â”‚  getDisplayMedia  â”‚    â”‚  AudioWorkletNode (pcm-processor)   â”‚ â”‚
+â”‚  â”‚  1 FPS @ 720p     â”‚    â”‚  Int16 PCM @ 16 kHz                 â”‚ â”‚
+â”‚  â”‚  JPEG 60%, ~80KB  â”‚    â”‚  128-sample callbacks               â”‚ â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜    â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â”‚
+â”‚           â”‚  base64                        â”‚  ArrayBuffer          â”‚
+â”‚           â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜                        â”‚
+â”‚                           â”‚  WebSocket  (binary + JSON)            â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+                            â”‚
+                 wss://flowlens-backend-rxwer3bgva-uk.a.run.app
+                            â”‚
+â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
+â”‚  FastAPI Backend  (Cloud Run Â· us-east4)                           â”‚
+â”‚                           â”‚                                         â”‚
+â”‚  /ws/{session_id}  â”€â”€â”€â”€â”€â”€â”€â”˜                                         â”‚
+â”‚  â”œâ”€â”€ session ID validation (regex, 1â€“64 chars)                      â”‚
+â”‚  â”œâ”€â”€ binary frames â†’ session.send(audio, mime=pcm;rate=16000)       â”‚
+â”‚  â”œâ”€â”€ base64 frames â†’ session.send(image/jpeg)                       â”‚
+â”‚  â””â”€â”€ receive loop:                                                  â”‚
+â”‚       â”œâ”€â”€ audio chunks â”€â”€â–º WS binary â”€â”€â–º speakers                  â”‚
+â”‚       â”œâ”€â”€ input_transcription â”€â”€â–º Redis memory                      â”‚
+â”‚       â””â”€â”€ latency event â”€â”€â–º WS JSON â”€â”€â–º UI                         â”‚
+â”‚                                                                      â”‚
+â”‚  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”   â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”    â”‚
+â”‚  â”‚  agent.py          â”‚   â”‚  memory.py                         â”‚    â”‚
+â”‚  â”‚  Gemini Live v1Î±   â”‚   â”‚  Redis Â· rolling 10-turn window    â”‚    â”‚
+â”‚  â”‚  bidiGenContent    â”‚   â”‚  safe JSON deserialize             â”‚    â”‚
+â”‚  â””â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜   â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜    â”‚
+â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+            â”‚
+    Gemini 2.5 Flash Native Audio
+    gemini-2.5-flash-native-audio-latest
 ```
 
-### Latency optimizations
+---
 
-| Optimization | Before | After | Saving |
-|---|---|---|---|
-| JPEG compression (60%) | 2-4MB PNG | ~80KB JPEG | ~300ms |
-| Gemini connection pooling | new client/req | reused client | ~500ms |
-| Parallel frame+voice setup | sequential | `asyncio.gather()` | ~400ms |
-| 100ms audio chunks | full buffer on release | streaming | ~200ms |
-| Redis pipelining | 2 round trips | 1 pipeline | ~20ms |
+## Gemini Live API Integration
 
-**Total savings: ~1420ms → p50 target < 2500ms**
+FlowLens uses the **v1alpha bidirectional streaming API** â€” not the standard generate API.
+
+```python
+# agent.py
+config = types.LiveConnectConfig(
+    response_modalities=["AUDIO"],
+    speech_config=types.SpeechConfig(
+        voice_config=types.VoiceConfig(
+            prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name="Charon")
+        )
+    ),
+    input_audio_transcription=types.AudioTranscriptionConfig(),  # capture user speech as text
+    system_instruction=types.Content(parts=[types.Part(text=system_prompt)]),
+    thinking_config=types.ThinkingConfig(thinking_budget=0),     # disable CoT â†’ lower latency
+)
+
+async with client.aio.live.connect(model=LIVE_MODEL, config=config) as session:
+    await session.send(input=pcm_bytes,  end_of_turn=False)           # audio
+    await session.send(input={"mime_type": "image/jpeg", "data": b64}) # screen frame
+```
+
+> **Why `thinking_budget=0`?** Chain-of-thought adds 600â€“1200ms to first-byte latency. For real-time voice, we want raw inference. The screen frame already provides all the visual context needed.
+
+---
+
+## Latency Breakdown
+
+| Stage | p50 | p95 |
+|---|---|---|
+| WS send (PCM) | ~5ms | ~15ms |
+| Gemini first audio byte | ~900ms | ~1800ms |
+| WS receive + decode | ~10ms | ~25ms |
+| **Total (hold â†’ hear)** | **~1.4s** | **~2.8s** |
 
 ---
 
@@ -90,108 +198,196 @@ Backend will be live at `http://localhost:8000`. Health check: `http://localhost
 
 ```
 flowlens/
-├── backend/
-│   ├── main.py          FastAPI app, WebSocket endpoint, /health
-│   ├── agent.py         Core: Gemini Live API + vision integration
-│   ├── memory.py        Conversation buffer (last 5 exchanges)
-│   ├── screen.py        JPEG compression utilities
-│   ├── requirements.txt Python deps (pinned)
-│   └── Dockerfile       Multi-stage, non-root user
-├── frontend/
-│   ├── electron/
-│   │   ├── main.js      Electron main process, 380×520 floating window
-│   │   └── preload.js   contextBridge API
-│   └── src/
-│       ├── App.jsx       4-state UI: IDLE/LISTENING/PROCESSING/SPEAKING
-│       ├── components/
-│       │   ├── StatusBar.jsx
-│       │   ├── ScreenPreview.jsx
-│       │   └── VoiceIndicator.jsx
-│       └── hooks/
-│           ├── useWebSocket.js    Auto-reconnect, audio streaming
-│           └── useScreenCapture.js getDisplayMedia, 1 FPS JPEG
-├── infra/terraform/
-│   ├── main.tf          Cloud Run + Artifact Registry + Redis + IAM
-│   ├── variables.tf
-│   └── outputs.tf
-├── scripts/
-│   └── submission_check.py  Pre-submission completeness checker
-├── .github/workflows/
-│   └── deploy.yml       CI/CD: test → build → push → terraform apply
-├── docker-compose.yml   Local dev: backend + redis
-├── .env.example         All required env vars documented
-├── Makefile             make dev / build / deploy / latency / check
-└── README.md            ← you are here
+â”‚
+â”œâ”€â”€ backend/                          FastAPI backend
+â”‚   â”œâ”€â”€ main.py                       WebSocket endpoint, CORS, /health, latency
+â”‚   â”œâ”€â”€ agent.py                      Gemini Live API session lifecycle
+â”‚   â”œâ”€â”€ memory.py                     Redis conversation buffer
+â”‚   â”œâ”€â”€ screen.py                     JPEG encode helpers
+â”‚   â”œâ”€â”€ static/index.html             Landing page at Cloud Run URL
+â”‚   â”œâ”€â”€ requirements.txt
+â”‚   â””â”€â”€ Dockerfile                    Multi-stage, non-root
+â”‚
+â”œâ”€â”€ frontend/                         Electron + React overlay
+â”‚   â”œâ”€â”€ electron/
+â”‚   â”‚   â”œâ”€â”€ main.js                   Window creation, IPC, screen permissions
+â”‚   â”‚   â”œâ”€â”€ preload.js                contextBridge API
+â”‚   â”‚   â””â”€â”€ entitlements.mac.plist    macOS mic + screen entitlements
+â”‚   â””â”€â”€ src/
+â”‚       â”œâ”€â”€ App.jsx                   4-state machine: IDLEâ†’LISTENINGâ†’PROCESSINGâ†’SPEAKING
+â”‚       â”œâ”€â”€ components/
+â”‚       â”‚   â”œâ”€â”€ StatusBar.jsx         Connection dot + latency + state label
+â”‚       â”‚   â”œâ”€â”€ ScreenPreview.jsx     Live JPEG thumbnail
+â”‚       â”‚   â””â”€â”€ VoiceIndicator.jsx    CSS-only animated waveform bars
+â”‚       â””â”€â”€ hooks/
+â”‚           â”œâ”€â”€ useWebSocket.js       WS connect/reconnect, AudioWorklet mic, audio send
+â”‚           â””â”€â”€ useScreenCapture.js   getDisplayMedia, 1 FPS canvas JPEG
+â”‚
+â”œâ”€â”€ infra/terraform/                  Infrastructure as Code
+â”‚   â”œâ”€â”€ main.tf                       Cloud Run + Artifact Registry + Redis + IAM
+â”‚   â”œâ”€â”€ variables.tf
+â”‚   â””â”€â”€ outputs.tf
+â”‚
+â”œâ”€â”€ scripts/
+â”‚   â””â”€â”€ submission_check.py           13-point hackathon submission checker
+â”‚
+â”œâ”€â”€ tests/                            98 passing tests
+â”‚   â”œâ”€â”€ test_agent.py
+â”‚   â”œâ”€â”€ test_memory.py
+â”‚   â”œâ”€â”€ test_screen.py
+â”‚   â””â”€â”€ test_main.py
+â”‚
+â”œâ”€â”€ cloudbuild.yaml                   Cloud Build CI/CD
+â”œâ”€â”€ docker-compose.yml                Local dev: backend + Redis
+â””â”€â”€ .env.example                      All env vars documented
 ```
 
 ---
 
-## Available Commands
+## Environment Variables
 
-```bash
-make dev        # Start local backend + redis
-make test       # Run pytest suite
-make build      # Build + push Docker image to Artifact Registry
-make deploy     # Full GCP deploy (build + terraform apply)
-make logs       # Tail Cloud Run logs
-make latency    # Show p50/p95 latency from /health endpoint
-make demo       # Open live demo in browser
-make check      # Run submission completeness checker
-```
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `GEMINI_API_KEY` | âœ… | â€” | [Google AI Studio](https://aistudio.google.com/app/apikey) |
+| `REDIS_URL` | optional | `redis://localhost:6379/0` | Conversation memory store |
+| `LIVE_MODEL` | optional | `gemini-2.5-flash-native-audio-latest` | Override Live model |
+| `VISION_MODEL` | optional | `gemini-2.5-flash` | Override vision model |
+| `CLOUD_RUN_URL` | operations | â€” | Set after first deploy |
+| `VITE_WS_URL` | frontend | `ws://localhost:8000` | Backend WebSocket URL |
 
 ---
 
-## Required Environment Variables
-
-| Variable | Required | Description |
-|---|---|---|
-| `GEMINI_API_KEY` | ✅ | From [Google AI Studio](https://aistudio.google.com/app/apikey) |
-| `REDIS_URL` | optional | Default: `redis://localhost:6379/0` |
-| `GCP_PROJECT_ID` | deploy only | Your Google Cloud project |
-| `GCP_REGION` | deploy only | Default: `us-central1` |
-| `CLOUD_RUN_URL` | operations | Set after first deploy |
-
----
-
-## GCP Deployment
+## Cloud Run Deployment
 
 ```bash
-# Authenticate
 gcloud auth login
-gcloud auth application-default login
+gcloud config set project gen-lang-client-0435276974
 
-# Set project
-gcloud config set project YOUR_PROJECT_ID
-
-# Deploy (builds, pushes, terraform apply in one command)
-make deploy
+gcloud builds submit --config=cloudbuild.yaml --project=gen-lang-client-0435276974
 ```
 
-After deploy, verify at `$(CLOUD_RUN_URL)/health`:
+Config applied automatically (`cloudbuild.yaml`):
 
-```json
-{
-  "status": "healthy",
-  "gemini_connected": true,
-  "redis_connected": true,
-  "p50_latency_ms": 2100,
-  "p95_latency_ms": 2800,
-  "total_sessions": 47
-}
+```yaml
+--timeout=3600          # Supports long WebSocket sessions
+--session-affinity      # Sticky routing â€” stateful WS sessions
+--min-instances=1       # No cold starts
+--max-instances=10
+--set-secrets=GEMINI_API_KEY=GEMINI_API_KEY:latest
+```
+
+**Health check:**
+
+```bash
+curl https://flowlens-backend-rxwer3bgva-uk.a.run.app/health
+# {"status":"healthy","gemini_connected":true}
 ```
 
 ---
 
-## Hackathon Track
+## Tech Stack
 
-**Track:** Live Agent  
-**Mandatory tech:** Gemini Live API · ADK · Google Cloud Run  
-**Challenge:** [geminiliveagentchallenge.devpost.com](https://geminiliveagentchallenge.devpost.com)
+<div align="center">
+
+| Category | Technology |
+|---|---|
+| ðŸ§  AI Model | Gemini 2.5 Flash Native Audio |
+| ðŸ”— AI API | Gemini Live API v1alpha Â· `bidiGenerateContent` |
+| ðŸ–¥ï¸ Desktop | Electron 33 Â· React 18 Â· Vite 6 |
+| ðŸŽ™ï¸ Audio | Web AudioWorklet Â· PCM Int16 Â· 16 kHz |
+| ðŸ“¸ Screen | `getDisplayMedia` Â· Canvas JPEG encode |
+| âš¡ Backend | FastAPI Â· Python 3.11 Â· asyncio |
+| ðŸ’¾ Memory | Redis Â· rolling 10-turn context window |
+| â˜ï¸ Cloud | Google Cloud Run Â· Cloud Build Â· Artifact Registry |
+| ðŸ—ï¸ IaC | Terraform Â· Secret Manager |
+| ðŸŽ¨ UI | Tailwind CSS Â· CSS keyframe animations |
+
+</div>
+
+---
+
+## Key Engineering Decisions
+
+<details>
+<summary><strong>Why AudioWorklet instead of MediaRecorder?</strong></summary>
+
+`MediaRecorder` buffers audio in WebM/Opus container format every ~250ms. The Gemini Live API requires raw PCM with MIME type `audio/pcm;rate=16000`. `AudioWorkletNode` runs in a dedicated audio thread, fires 128-sample callbacks (~8ms at 16kHz), and lets us encode Int16 PCM directly â€” zero container overhead.
+
+</details>
+
+<details>
+<summary><strong>Why thinking_budget=0?</strong></summary>
+
+Gemini's chain-of-thought adds 600â€“1200ms to first-byte latency. For a real-time voice agent with visual screen context already provided, deliberate reasoning increases latency without meaningful quality gain. Disabled for sub-2s p50 target.
+
+</details>
+
+<details>
+<summary><strong>Why session affinity on Cloud Run?</strong></summary>
+
+A Gemini `bidiGenerateContent` stream and its Redis session state are tied to a specific backend process. Without sticky routing, mid-session WebSocket reconnects land on a cold instance with no open Gemini session â€” silently dropping the conversation. `--session-affinity` routes by cookie to the same instance.
+
+</details>
+
+<details>
+<summary><strong>Why Electron instead of a browser extension?</strong></summary>
+
+Three capabilities are unavailable to browser extensions: (1) system audio loopback capture, (2) always-on-top window above all other apps, (3) global keyboard shortcuts via `globalShortcut` API. Electron provides all three with a single React codebase.
+
+</details>
+
+---
+
+## Bugs Squashed
+
+| Bug | Root Cause | Fix |
+|---|---|---|
+| "No audio received" | `audio_end` fired before AudioWorklet init (~200ms) completed | Await `micInitPromise` in `stopMic` before sending `audio_end` |
+| Blank screen on launch | `stopMic` declared below `useEffect` that used it â€” JS TDZ | Hoisted all `useCallback` above `useEffect` |
+| WS sessions killed at 60s | Cloud Run default `timeoutSeconds=60` | `timeoutSeconds=3600` in `cloudbuild.yaml` |
+| Mic echo / feedback | `workletNode.connect(ctx.destination)` piped mic â†’ speakers | Removed â€” sourceâ†’worklet only |
+| SPEAKING state freezes | No fallback if Gemini omits final transcript | 5s timeout â†’ force `IDLE` |
+| Stale keyboard handlers | React closures captured stale `appState` at mount | Sync state â†’ `useRef`, read `.current` in handlers |
+| Windows stdout crash | `cp1252` can't encode Unicode box-drawing chars | Wrap `sys.stdout` in UTF-8 `TextIOWrapper` |
+| Screen capture AbortError | `startCapture` called twice while stream loading | Guard: `if (streamRef.current) return` |
+
+---
+
+## Tests
+
+```bash
+cd backend
+pip install -r requirements.txt
+pytest tests/ -v
+# 98 passed in 2.34s
+```
+
+---
+
+## Links
+
+| | |
+|---|---|
+| ðŸŒ Live Backend | https://flowlens-backend-rxwer3bgva-uk.a.run.app |
+| ðŸ’š Health Check | https://flowlens-backend-rxwer3bgva-uk.a.run.app/health |
+| ðŸ’» Source Code | https://github.com/krishnashakula/flowlens |
+| ðŸ‘¤ GDG Profile | https://gdg.community.dev/u/m45uxf/#/about |
+| ðŸ† Hackathon | https://geminiliveagentchallenge.devpost.com |
+
+---
+
+## Hackathon
+
+**Challenge:** Gemini Live Agent Challenge 2026
+**Track:** Live Agent
+**Mandatory tech:** Gemini Live API Â· Google Cloud Run Â· `google-genai` SDK
 
 > *"I created this piece of content for the purposes of entering the Gemini Live Agent Challenge hackathon."*
 
 ---
 
-## License
+<div align="center">
 
-MIT
+MIT License © 2026 Krishna Shakula
+
+</div>
